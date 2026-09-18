@@ -19,4 +19,10 @@ declare module "@excel.js/exceljs" {
     };
     worksheets: Worksheet[];
   }
+
+  const ExcelJS: {
+    Workbook: typeof Workbook;
+  };
+
+  export default ExcelJS;
 }

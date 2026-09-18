@@ -96,23 +96,6 @@ function cleanRow(row: Record<string, unknown>) {
   );
 }
 
-function toText(value: unknown): string {
-  if (value == null) return "";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
-  if (typeof value === "object") {
-    const candidate = value as Record<string, unknown>;
-    if (typeof candidate.text === "string") return candidate.text;
-    if (candidate.result != null) return String(candidate.result);
-    if (Array.isArray(candidate.richText)) {
-      return candidate.richText
-        .map((part) => (typeof part === "object" && part && "text" in part ? String((part as { text: unknown }).text) : ""))
-        .join("");
-    }
-  }
-  return String(value);
-}
-
 function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -250,28 +233,34 @@ export function StudentImportWizard({
       if (extension === "csv" || extension === "txt") {
         parseDelimited(await file.text(), "csv", file.name);
       } else if (extension === "xlsx") {
-        const Excel = await import("@excel.js/exceljs");
-        const workbook = new Excel.Workbook();
-        await workbook.xlsx.load(await file.arrayBuffer());
-        const sheet = workbook.worksheets[0];
-        if (!sheet) throw new Error("Le classeur Excel ne contient aucune feuille.");
+        const body = new FormData();
+        body.set("file", file);
 
-        const firstRowValues = sheet.getRow(1).values;
-        const headerValues: unknown[] = Array.isArray(firstRowValues) ? firstRowValues.slice(1) : [];
-        const parsedHeaders: string[] = headerValues
-          .map((value: unknown) => toText(value).trim())
-          .filter((value: string) => Boolean(value));
-        const parsedRows: RawRow[] = [];
-        for (let i = 2; i <= sheet.rowCount; i += 1) {
-          const row = sheet.getRow(i);
-          const item: RawRow = {};
-          parsedHeaders.forEach((header, index) => {
-            item[header] = toText(row.getCell(index + 1).value).trim();
-          });
-          if (Object.values(item).some(Boolean)) parsedRows.push(item);
+        const response = await fetch("/api/students/import/parse-xlsx", {
+          method: "POST",
+          body,
+        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          headers?: string[];
+          rows?: RawRow[];
+          truncated?: boolean;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Lecture du fichier Excel impossible.");
         }
-        if (!parsedHeaders.length || !parsedRows.length) throw new Error("Aucune ligne exploitable détectée dans le fichier Excel.");
+
+        const parsedHeaders = payload.headers ?? [];
+        const parsedRows = payload.rows ?? [];
+        if (!parsedHeaders.length || !parsedRows.length) {
+          throw new Error("Aucune ligne exploitable détectée dans le fichier Excel.");
+        }
+
         installRows(parsedRows, parsedHeaders, "xlsx", file.name);
+        if (payload.truncated) {
+          setResultMessage("Le fichier contient plus de 5 000 lignes : seules les 5 000 premières ont été chargées.");
+        }
       } else {
         throw new Error("Format non pris en charge. Utilisez CSV ou Excel .xlsx.");
       }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Workbook } from "@excel.js/exceljs";
+import ExcelJS from "@excel.js/exceljs";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const workbook = new Workbook();
+    const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(await file.arrayBuffer());
 
     const sheet = workbook.worksheets[0];

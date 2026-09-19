@@ -17,10 +17,19 @@ export async function getAppContext() {
     .maybeSingle();
 
   if (!membership) {
-    return { userId, supabase, membership: null, organization: null, role: null, profile: null };
+    return {
+      userId,
+      supabase,
+      membership: null,
+      organization: null,
+      role: null,
+      profile: null,
+      permissions: [] as string[],
+      timeZone: "Europe/Paris",
+    };
   }
 
-  const [{ data: organization }, { data: role }, { data: profile }] = await Promise.all([
+  const [{ data: organization }, { data: role }, { data: profile }, { data: rolePermissions }, { data: settings }] = await Promise.all([
     supabase
       .from("scolaria_organizations")
       .select("id, name, slug, plan_key, logo_url")
@@ -36,7 +45,34 @@ export async function getAppContext() {
       .select("id, display_name, first_name, last_name, email, avatar_url, platform_role")
       .eq("id", userId)
       .single(),
+    supabase
+      .from("scolaria_role_permissions")
+      .select("permission_id")
+      .eq("organization_id", membership.organization_id)
+      .eq("role_id", membership.role_id),
+    supabase
+      .from("scolaria_organization_settings")
+      .select("timezone")
+      .eq("organization_id", membership.organization_id)
+      .maybeSingle(),
   ]);
 
-  return { userId, supabase, membership, organization, role, profile };
+  const permissionIds = (rolePermissions ?? []).map((item) => item.permission_id);
+  const { data: permissionRows } = permissionIds.length
+    ? await supabase
+        .from("scolaria_permissions")
+        .select("code")
+        .in("id", permissionIds)
+    : { data: [] as Array<{ code: string }> };
+
+  return {
+    userId,
+    supabase,
+    membership,
+    organization,
+    role,
+    profile,
+    permissions: (permissionRows ?? []).map((item) => item.code),
+    timeZone: settings?.timezone || "Europe/Paris",
+  };
 }

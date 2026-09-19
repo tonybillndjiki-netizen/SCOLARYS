@@ -14,6 +14,7 @@ export default async function ProtectedLayout({
     <AppShell
       organizationName={context.organization.name}
       roleName={context.role.name}
+      roleKey={context.role.key}
       userName={context.profile?.display_name || context.profile?.email || "Utilisateur"}
     >
       {children}

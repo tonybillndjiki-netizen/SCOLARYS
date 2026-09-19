@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BookOpen,
-  Boxes,
   GraduationCap,
   LayoutDashboard,
+  Library,
   LogOut,
   Plug,
   School,
@@ -14,28 +14,35 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-const nav = [
+const baseNav = [
   { href: "/app", label: "Dashboard", icon: LayoutDashboard },
   { href: "/app/programs", label: "Formations", icon: GraduationCap },
   { href: "/app/classes", label: "Classes", icon: School },
   { href: "/app/students", label: "Étudiants", icon: Users },
   { href: "/app/subjects", label: "Matières", icon: BookOpen },
-  { href: "/app/integrations", label: "Intégrations", icon: Plug },
 ] as const;
 
 export function AppShell({
   organizationName,
   roleName,
+  roleKey,
   userName,
   children,
 }: {
   organizationName: string;
   roleName: string;
+  roleKey: string;
   userName: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const courseLabel = roleKey === "teacher" || roleKey === "student" ? "Mes cours" : "Cours";
+  const nav = [
+    ...baseNav,
+    { href: "/app/courses", label: courseLabel, icon: Library },
+    { href: "/app/integrations", label: "Intégrations", icon: Plug },
+  ];
 
   async function signOut() {
     const supabase = createClient();
@@ -88,7 +95,7 @@ export function AppShell({
           </div>
           <nav className="mt-3 flex gap-2 overflow-x-auto pb-1">
             {nav.map(({ href, label }) => (
-              <Link key={href} href={href} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold ${pathname === href ? "bg-[#173f5f] text-white" : "bg-[#f0f3f6] text-[#4f5d73]"}`}>
+              <Link key={href} href={href} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold ${(href === "/app" ? pathname === href : pathname.startsWith(href)) ? "bg-[#173f5f] text-white" : "bg-[#f0f3f6] text-[#4f5d73]"}`}>
                 {label}
               </Link>
             ))}
